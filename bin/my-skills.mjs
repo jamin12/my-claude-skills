@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import * as clack from "@clack/prompts";
 import { execSync } from "node:child_process";
 import {
   existsSync,
@@ -44,8 +45,7 @@ function targetDir(scope) {
   return scope === "project" ? PROJECT_SKILLS_DIR : GLOBAL_SKILLS_DIR;
 }
 
-function install(scope, names) {
-  ensureRepo();
+function linkSkills(scope, names) {
   const available = listAvailable();
   if (available.length === 0) {
     console.error("✗ repo 안에 스킬을 찾지 못했습니다.");
@@ -55,10 +55,7 @@ function install(scope, names) {
   const dest = targetDir(scope);
   mkdirSync(dest, { recursive: true });
 
-  const wantAll = names.includes("--all") || names.length === 0;
-  const targets = wantAll ? available : names;
-
-  for (const name of targets) {
+  for (const name of names) {
     if (!available.includes(name)) {
       console.warn(`⚠ ${name}: 존재하지 않는 스킬 (사용 가능: ${available.join(", ")})`);
       continue;
@@ -66,7 +63,7 @@ function install(scope, names) {
     const linkPath = join(dest, name);
     const target = join(CLONE_DIR, "skills", name);
 
-    if (existsSync(linkPath) || lstatExists(linkPath)) {
+    if (lstatExists(linkPath)) {
       const stat = lstatSync(linkPath);
       if (stat.isSymbolicLink()) {
         const current = readlinkSync(linkPath);
@@ -84,6 +81,73 @@ function install(scope, names) {
     symlinkSync(target, linkPath, "dir");
     console.log(`✓ ${name}: ${linkPath} → ${target}`);
   }
+}
+
+async function install(scope, names, scopeExplicit) {
+  ensureRepo();
+  const available = listAvailable();
+  if (available.length === 0) {
+    console.error("✗ repo 안에 스킬을 찾지 못했습니다.");
+    process.exit(1);
+  }
+
+  // 인수 없이 install 호출 → 인터랙티브 모드
+  if (names.length === 0) {
+    await interactiveInstall(scope, scopeExplicit, available);
+    return;
+  }
+
+  const wantAll = names.includes("--all");
+  const explicitNames = names.filter((n) => n !== "--all");
+  const targets = wantAll ? available : explicitNames;
+  linkSkills(scope, targets);
+}
+
+async function interactiveInstall(defaultScope, scopeExplicit, available) {
+  clack.intro("my-claude-skills: 인터랙티브 설치");
+
+  const selected = await clack.multiselect({
+    message: "설치할 스킬을 선택하세요 (space: 토글, enter: 확정)",
+    options: available.map((name) => ({ value: name, label: name })),
+    required: true,
+  });
+
+  if (clack.isCancel(selected)) {
+    clack.cancel("취소됨");
+    process.exit(0);
+  }
+
+  let scope = defaultScope;
+  if (!scopeExplicit) {
+    const picked = await clack.select({
+      message: "어디에 설치할까요?",
+      options: [
+        {
+          value: "global",
+          label: `Global  (~/.claude/skills/)`,
+          hint: "모든 프로젝트에서 활성화",
+        },
+        {
+          value: "project",
+          label: `Project (${PROJECT_SKILLS_DIR})`,
+          hint: "현재 디렉토리 한정",
+        },
+      ],
+      initialValue: "global",
+    });
+    if (clack.isCancel(picked)) {
+      clack.cancel("취소됨");
+      process.exit(0);
+    }
+    scope = picked;
+  }
+
+  const spinner = clack.spinner();
+  spinner.start(`심볼릭 링크 생성 중 (${selected.length}개)`);
+  linkSkills(scope, selected);
+  spinner.stop("완료");
+
+  clack.outro(`✓ ${selected.length}개 스킬 설치됨 → ${targetDir(scope)}`);
 }
 
 function lstatExists(p) {
@@ -190,9 +254,10 @@ function update() {
 }
 
 function parseArgs(argv) {
+  const scopeExplicit = argv.includes("--project") || argv.includes("--global");
   const scope = argv.includes("--project") ? "project" : "global";
   const rest = argv.filter((a) => a !== "--project" && a !== "--global");
-  return { scope, rest };
+  return { scope, scopeExplicit, rest };
 }
 
 function usage() {
@@ -211,13 +276,13 @@ update 는 ~/.my-claude-skills 를 git pull 해서 모든 설치된 링크가 �
 `);
 }
 
-function main() {
+async function main() {
   const [cmd, ...rawArgs] = process.argv.slice(2);
-  const { scope, rest } = parseArgs(rawArgs);
+  const { scope, scopeExplicit, rest } = parseArgs(rawArgs);
 
   switch (cmd) {
     case "install":
-      install(scope, rest);
+      await install(scope, rest, scopeExplicit);
       break;
     case "list":
       list(scope);
@@ -242,4 +307,7 @@ function main() {
   }
 }
 
-main();
+main().catch((err) => {
+  console.error(err);
+  process.exit(1);
+});
