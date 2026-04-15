@@ -2,7 +2,7 @@
 name: cmux-worktree
 description: git worktree를 생성/삭제하고 cmux(iTerm2 기반) 새 탭에서 claude를 실행한다. Claude 세션과 docs/plans 맥락을 메인 repo로 자동 마이그레이션한다.
 disable-model-invocation: true
-argument-hint: [branch-name] [--base=branch] | --remove [branch-name]
+argument-hint: "[branch-name] [--base=branch] | --remove [branch-name]"
 ---
 
 # cmux Git Worktree Skill
