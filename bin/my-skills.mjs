@@ -103,7 +103,9 @@ function list(scope) {
     return;
   }
 
-  const names = readdirSync(dest).sort();
+  const names = readdirSync(dest)
+    .filter((n) => !n.startsWith("."))
+    .sort();
   if (names.length === 0) {
     console.log("(비어있음)");
     return;
