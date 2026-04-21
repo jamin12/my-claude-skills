@@ -1,0 +1,13 @@
+{
+  "backend": [
+    "architecture",
+    "domain-model",
+    "usecase",
+    "rest-controller",
+    "jpa-entity",
+    "mapper",
+    "testing",
+    "setup-gradle",
+    "code-convention"
+  ]
+}
