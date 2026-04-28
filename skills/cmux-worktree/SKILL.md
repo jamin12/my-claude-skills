@@ -148,11 +148,21 @@ argument-hint: "[branch-name] [--base=branch] | --remove [branch-name]"
    ```
 
 5. **워크트리 삭제 실행**:
+   `git worktree remove`는 untracked/gitignored 파일(`build/`, `.gradle/`, `.idea/`, `node_modules/` 등)이 남아있으면 폴더를 깔끔히 정리하지 못하는 경우가 있다. 따라서 git의 메타데이터 제거 후 잔여 폴더를 강제로 정리하고, `git worktree prune`까지 호출해 메인 repo의 worktree 목록을 정리한다.
    ```bash
-   # 먼저 일반 삭제 시도, 실패하면 --force로 재시도
+   # 1) git worktree 메타데이터 제거 (먼저 일반 삭제 시도, 실패하면 --force)
    if ! git -C "$MAIN_REPO" worktree remove "$TARGET_PATH" 2>/dev/null; then
-     git -C "$MAIN_REPO" worktree remove --force "$TARGET_PATH"
+     git -C "$MAIN_REPO" worktree remove --force "$TARGET_PATH" 2>/dev/null || true
    fi
+
+   # 2) 폴더 잔여물 강제 삭제 (untracked/ignored 파일 포함)
+   if [ -d "$TARGET_PATH" ]; then
+     rm -rf "$TARGET_PATH"
+     echo "워크트리 폴더 강제 삭제: $TARGET_PATH"
+   fi
+
+   # 3) git worktree 메타데이터 정리 (stale 항목 제거)
+   git -C "$MAIN_REPO" worktree prune
    ```
 
 6. **결과 보고**: 삭제된 워크트리 경로와 브랜치 이름을 사용자에게 알려줍니다. 현재 워크트리를 삭제한 경우 메인 repo로 이동하라고 안내합니다. 세션 마이그레이션이 수행된 경우, 메인 프로젝트에서 `claude --resume`으로 워크트리 대화를 이어갈 수 있다고 안내합니다.
