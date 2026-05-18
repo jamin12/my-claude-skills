@@ -44,9 +44,49 @@ src/main/kotlin/{basePackagePath}/
 | 포트 | 위치 | 역할 | 예시 |
 |------|------|------|------|
 | InPort | application/{도메인}/port/inbound/ | UseCase 인터페이스 | `CreateAlertInPort` |
-| OutPort | application/{도메인}/port/outbound/ | 영속성 인터페이스 | `SaveAlertOutPort` |
+| OutPort | application/{도메인}/port/outbound/ | 외부 의존 인터페이스 | `AlertOutPort` |
 | Driving Adapter | adapter/{도메인}/restIn/ | InPort 호출 | REST Controller |
-| Driven Adapter | adapter/{도메인}/jpaOut/ | OutPort 구현 | JPA Repository |
+| Driven Adapter | adapter/{도메인}/jpaOut/ | OutPort 구현 | JPA Adapter |
+
+## OutPort 분리 기준
+
+**한 외부 의존 = 한 OutPort.** 외부 의존 단위로 OutPort를 묶는다.
+
+| 외부 의존 종류 | 묶음 단위 | OutPort 네이밍 |
+|--------------|----------|---------------|
+| RDB | 테이블(또는 aggregate root) 1개 | `{도메인}OutPort` |
+| 외부 HTTP API | 외부 시스템 1개 | `{시스템명}OutPort` |
+| 라이브러리/SDK | 라이브러리(또는 기능) 1개 | `{라이브러리/기능명}OutPort` |
+| 메시지 브로커 | 토픽/큐 1개 | `{토픽명}OutPort` |
+| 캐시/검색 | 논리 인스턴스 1개 | `{기능명}OutPort` |
+
+그 외부 의존에 대해 UseCase들이 필요로 하는 **모든 행위**가 한 OutPort에 모인다.
+
+```kotlin
+// 한 테이블에 대한 모든 행위가 한 OutPort에 모인다
+interface AlertOutPort {
+    fun save(alert: Alert): Alert
+    fun findById(id: AlertId): Alert?
+    fun findByOwner(ownerId: OwnerId): List<Alert>
+    fun deleteById(id: AlertId)
+}
+```
+
+### 행위 단위로 쪼개지 않는 이유
+
+- **자동 결정**: 새 메서드를 추가할 때 "어느 OutPort에 넣을까" 케이스 판단이 불필요. 외부 의존이 같으면 그 OutPort에 추가하면 된다.
+- **어댑터-OutPort 1:1**: 한 어댑터 클래스가 그 외부 의존 전체를 책임진다. 자연히 OutPort 구현체도 1:1로 매핑된다.
+- **OutPort 갯수 통제**: 행위마다 인터페이스를 만들면 수가 폭발한다.
+
+ISP(Interface Segregation)를 더 엄격히 적용하려면 행위 단위로도 가능하지만, 본 컨벤션은 외부 의존 단위로 통일한다.
+
+### OutPort를 분리하는 경우
+
+같은 종류의 외부 의존이라도 다음에 해당하면 OutPort를 분리한다.
+
+- **다른 테이블/aggregate**: 한 OutPort에는 한 테이블/aggregate root에 대한 작업만 모은다. 다른 테이블이면 새 OutPort.
+- **트랜잭션/연결 풀 경계가 다름**: 읽기 전용 슬레이브 vs 마스터, 어드민 DDL 전용 연결 등.
+- **같은 클라이언트지만 의미가 완전히 다른 외부 시스템**: 동일 HTTP 라이브러리로 두 외부 시스템을 호출 → 두 OutPort.
 
 ## 새 기능 추가 시 생성 순서
 

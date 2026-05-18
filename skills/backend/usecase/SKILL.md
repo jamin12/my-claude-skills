@@ -44,33 +44,28 @@ class CreateAlertUseCase(
 
 ### 규칙 3: 도메인 모델이 없는 경우 (간소화 패턴)
 
-DB 저장이 필요 없고, 복잡한 비즈니스 로직이 없는 경우(예: K8S 리소스 단순 생성/조회) Domain 레이어 없이 UseCase에서 직접 Command → OutPort 호출이 가능하다.
+DB 저장이 필요 없고 복잡한 비즈니스 로직이 없는 외부 리소스 단순 위임의 경우, Domain 레이어 없이 UseCase에서 직접 Command → OutPort 호출이 가능하다.
 
 ```kotlin
 @Service
-class CreateNamespaceUseCase(
-    private val createK8sResourceOutPort: CreateK8sResourceOutPort,
-) : CreateNamespaceInPort {
-    override fun execute(command: CreateNamespaceCommand): CreateNamespaceResult {
-        // Domain 모델 없이 직접 리소스 구성
-        val namespace = NamespaceBuilder()
-            .withNewMetadata()
-                .withName(command.name)
-                .addToLabels("managed-by", "ccp")
-            .endMetadata()
-            .build()
-
-        val created = createK8sResourceOutPort.execute(namespace, k8sUser) as Namespace
-        return CreateNamespaceResult(name = created.metadata.name)
+class SendNotificationUseCase(
+    private val notificationOutPort: NotificationOutPort,
+) : SendNotificationInPort {
+    override fun execute(command: SendNotificationCommand): SendNotificationResult {
+        // Domain 모델 없이 외부 시스템에 직접 위임
+        val messageId = notificationOutPort.send(
+            recipient = command.recipient,
+            content = command.content,
+        )
+        return SendNotificationResult(messageId = messageId)
     }
 }
 ```
 
 **이 패턴을 사용하는 조건** (모두 충족해야 함):
 - DB 저장이 필요 없음
-- RBAC/권한 설정이 필요 없음
-- 복잡한 비즈니스 로직이 없음
-- 단순 외부 리소스 생성/조회만 하는 경우
+- 권한/검증 같은 도메인 규칙이 없음
+- 외부 리소스 단순 생성/조회/전송만 하는 경우
 
 ### 규칙 4: UseCase에 비즈니스 로직 넣지 않기
 

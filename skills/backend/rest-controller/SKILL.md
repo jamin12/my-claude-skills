@@ -65,11 +65,11 @@ interface AlertRestMapper {
 }
 
 // 확장함수 — 필드 조합/가공이 필요한 경우
-fun CreateTektonResourceResult.toCreateResponse(): CreateTektonResourceResponse =
-    CreateTektonResourceResponse(
-        kind = kind,
-        success = success,
-        gitOpsDetail = syncSuccess?.let { GitOpsDetail(syncSuccess = it, path = path) },
+fun CreateAlertResult.toCreateResponse(): CreateAlertResponse =
+    CreateAlertResponse(
+        id = id.value,
+        name = name,
+        detail = activated?.let { AlertDetail(activated = it, threshold = threshold) },
     )
 ```
 

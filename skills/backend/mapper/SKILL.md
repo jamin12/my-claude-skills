@@ -66,8 +66,8 @@ interface DepartmentRestMapper {
 위치: `application/{도메인}/mapper/`
 
 ```kotlin
-fun GrmClose.toResult(): GrmCloseResult =
-    GrmCloseResult(id = this.id!!, year = this.year)
+fun Alert.toResult(): AlertResult =
+    AlertResult(id = this.id.value, name = this.name)
 ```
 
 ## 매퍼 위치 요약

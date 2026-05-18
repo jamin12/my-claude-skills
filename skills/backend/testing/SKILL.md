@@ -147,13 +147,13 @@ API 수동 테스트용 `.http` 파일을 해당 도메인의 `.http` 파일에 
 ### 위치
 
 ```
-{모듈}/src/test/resources/http/{도메인}/{파일명}.http
+src/test/resources/http/{도메인}/{파일명}.http
 ```
 
 ### 구조
 
 ```http
-@baseUrl = http://localhost:8080/{모듈-context-path}/api
+@baseUrl = http://localhost:8080/api
 @token = Bearer {JWT 토큰}
 
 ### ===== {섹션명} =====
@@ -174,7 +174,7 @@ Authorization: {{token}}
 
 ### 규칙
 - 파일 상단에 `@baseUrl`, `@token` 등 공통 변수 선언
-- 도메인별 폴더로 구분하여 관리 (예: `http/argo/`, `http/namespace/`)
+- 도메인별 폴더로 구분하여 관리 (예: `http/{도메인A}/`, `http/{도메인B}/`)
 - 기존 도메인 폴더에 `.http` 파일이 있으면 해당 파일에 추가
 - 각 요청 앞에 `###`으로 구분하고 설명 추가
 - `###` 구분선과 섹션명으로 API 그룹핑
@@ -182,21 +182,19 @@ Authorization: {{token}}
 ### 예시
 
 ```http
-@baseUrl = http://localhost:8080/kube-management/api
+@baseUrl = http://localhost:8080/api
 @token = Bearer eyJ...
 
-### ===== Storage GitOps 생성 =====
+### ===== Alert 생성 =====
 
-### ConfigMap GitOps 생성
-POST {{baseUrl}}/v1/storages/cicd
+### 알림 생성
+POST {{baseUrl}}/v1/alerts
 Authorization: {{token}}
 Content-Type: application/json
 
 {
-  "type": "CONFIG_MAP",
-  "yaml": "apiVersion: v1\nkind: ConfigMap\nmetadata:\n  name: my-config\n",
-  "argocdLabel": "my-argocd-app",
-  "path": "storage/configmaps"
+  "name": "샘플 알림",
+  "targetPrice": 70000
 }
 ```
 

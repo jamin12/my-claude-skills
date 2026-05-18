@@ -44,21 +44,27 @@ data class User(
 
 ## Boolean 네이밍
 
-Boolean 프로퍼티에 `is` 접두사를 붙이지 않는다.
+Boolean 프로퍼티에 `is`/`has` 접두사를 붙이지 않는다. 동사 자체로 상태를 표현한다.
 
 ```kotlin
 // WRONG
 data class ProjectResponse(
     val isActive: Boolean,
     val isLocked: Boolean,
+    val hasMembers: Boolean,
+    val hasPermission: Boolean,
 )
 
 // CORRECT
 data class ProjectResponse(
     val active: Boolean,
     val locked: Boolean,
+    val containsMembers: Boolean,
+    val permitted: Boolean,
 )
 ```
+
+쿼리 함수(메서드)의 경우에도 동일하게 접두사 없이 동사형/형용사형으로 작성한다 (`fun expired()`, `fun revoked()`).
 
 ## ktlint
 
