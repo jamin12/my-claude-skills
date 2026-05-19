@@ -19,8 +19,8 @@ src/main/kotlin/{basePackagePath}/
 │       └── jpaOut/          # Driven Adapter (JPA)
 │           ├── entity/
 │           ├── repository/
-│           ├── service/     # OutPort 구현체
-│           └── mapper/
+│           ├── mapper/
+│           └── *JpaAdapter.kt  # OutPort 구현체 (jpaOut/ 바로 밑, service/ 같은 폴더 X)
 ├── application/
 │   └── {도메인}/
 │       ├── service/         # UseCase 구현
@@ -46,7 +46,22 @@ src/main/kotlin/{basePackagePath}/
 | InPort | application/{도메인}/port/inbound/ | UseCase 인터페이스 | `CreateAlertInPort` |
 | OutPort | application/{도메인}/port/outbound/ | 외부 의존 인터페이스 | `AlertOutPort` |
 | Driving Adapter | adapter/{도메인}/restIn/ | InPort 호출 | REST Controller |
-| Driven Adapter | adapter/{도메인}/jpaOut/ | OutPort 구현 | JPA Adapter |
+| Driven Adapter | adapter/{도메인}/{외부의존}Out/ | OutPort 구현 | JPA/HTTP/JWT Adapter |
+
+### Driven Adapter 위치 규칙
+외부 의존 종류별로 `{외부의존}Out/` 폴더를 만들고, **OutPort 구현체는 그 폴더 바로 밑**에 둔다.
+`service/` 같은 하위 폴더를 만들지 않는다 — 어댑터는 비즈니스 서비스가 아니라 외부 의존 어댑터이고,
+`{외부의존}Out/` 자체가 이미 그 책임을 가리키기 때문이다.
+
+```
+adapter/auth/
+├── jwtOut/JwtJjwtAdapter.kt         # JJWT 어댑터
+├── googleOut/GoogleJwksAdapter.kt   # Google JWKS 어댑터
+adapter/member/
+└── jpaOut/MemberJpaAdapter.kt       # JPA 어댑터 (jpaOut/ 바로 밑)
+```
+
+어댑터 빈은 `@Component` 로 등록한다 (`@Service` 는 application 서비스용).
 
 ## OutPort 분리 기준
 

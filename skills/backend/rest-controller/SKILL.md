@@ -31,7 +31,21 @@ class AlertController(
 Controller의 Request/Response DTO는 `adapter/{도메인}/restIn/dto/` 패키지에 위치.
 Application 레이어의 Command/Result와는 별도로 정의하고 매퍼로 변환.
 
-// WRONG - Application DTO를 Controller에서 직접 사용
+**DTO 파일 분리 규칙** (UseCase 의 Command/Result/Query 와 동일한 컨벤션):
+
+역할별 파일에 관련 클래스를 모아서 작성한다. 클래스마다 개별 파일을 만들지 않는다.
+
+```
+adapter/{도메인}/restIn/dto/
+├── Request.kt    # 모든 Request data class
+└── Response.kt   # 모든 Response data class
+```
+
+- 해당 역할의 DTO 가 없으면 파일을 만들지 않는다
+- 모든 DTO 는 `data class`
+- ktlint `filename` 룰은 `.editorconfig` 에서 disabled 처리해 이 컨벤션과 충돌하지 않게 한다
+
+// WRONG - Application DTO를 Controller에서 직접 사용, 반환도 raw DTO
 ```kotlin
 @PostMapping("/alerts")
 fun createAlert(@RequestBody command: CreateAlertCommand): CreateAlertResult {
@@ -39,13 +53,41 @@ fun createAlert(@RequestBody command: CreateAlertCommand): CreateAlertResult {
 }
 ```
 
-// CORRECT - Adapter DTO로 변환
+// CORRECT - Adapter DTO로 변환 + CommonResponse 래핑 + ResponseEntity 반환
 ```kotlin
 @PostMapping("/alerts")
-fun createAlert(@RequestBody request: CreateAlertRequest): CreateAlertResponse {
-    val command = request.toCommand()
-    val result = createAlertInPort.execute(command)
-    return CreateAlertResponse.from(result)
+fun createAlert(
+    @RequestBody request: CreateAlertRequest,
+): ResponseEntity<CommonResponse<CreateAlertResponse?>> {
+    val result = createAlertInPort.execute(request.toCommand())
+    return ResponseEntity.ok(CommonResponse.ok(CreateAlertResponse.from(result)))
+}
+```
+
+## 규칙 5: 반환 타입은 항상 `ResponseEntity<CommonResponse<T?>>`
+
+Controller 메서드의 반환 타입은 **항상 `ResponseEntity<CommonResponse<T?>>`** 로 통일한다.
+
+이유:
+- HTTP 상태 코드, 응답 헤더(예: `Location`)를 컨트롤러에서 명시적으로 제어할 수 있다
+- 전역 응답 포맷(`CommonResponse`) 과 HTTP 메타가 같은 자리에서 표현되어 코드 흐름이 일관된다
+- 예외 핸들러(`GlobalExceptionHandler`) 가 반환하는 타입과 시그니처가 같아 클라이언트 입장에서 응답 구조가 통일된다
+
+```kotlin
+@PostMapping
+fun create(...): ResponseEntity<CommonResponse<AlertResponse?>> =
+    ResponseEntity.ok(CommonResponse.ok(...))
+
+@PostMapping
+fun createWithLocation(...): ResponseEntity<CommonResponse<AlertResponse?>> =
+    ResponseEntity
+        .created(URI.create("/api/v1/alerts/${result.id}"))
+        .body(CommonResponse.ok(...))
+
+@DeleteMapping("/{id}")
+fun delete(...): ResponseEntity<CommonResponse<Unit?>> {
+    deleteAlertInPort.execute(id)
+    return ResponseEntity.ok(CommonResponse.ok())
 }
 ```
 
@@ -89,3 +131,4 @@ interface DepartmentRestMapper {
 - [ ] Request/Response DTO가 adapter 레이어에 있는가?
 - [ ] Request→Command 변환에 MapStruct를 사용하는가?
 - [ ] Result→Response 변환이 단순 1:1이면 MapStruct, 필드 조합/가공이면 확장함수를 사용하는가?
+- [ ] 반환 타입이 `ResponseEntity<CommonResponse<T?>>` 인가?
